@@ -4,63 +4,44 @@ import os
 import glob
 from datetime import datetime, timedelta
 
-@st.cache_data
-def load_raw_data_v2(data_dir: str = "data/processed") -> pd.DataFrame:
-    """Load processed log data"""
+def get_latest_mtime(raw_dir: str = "data/raw_logs") -> float:
+    """Get the latest modification timestamp from raw logs"""
     try:
-        # Try Parquet first
-        parquet_path = data_dir
+        if not os.path.exists(raw_dir): return 0.0
+        files = glob.glob(os.path.join(raw_dir, "*.csv"))
+        if not files: return 0.0
+        return max(os.path.getmtime(f) for f in files)
+    except Exception:
+        return 0.0
+
+@st.cache_data(show_spinner=False, ttl=300) # Optional TTL for safety
+def load_raw_data_v2(last_modified: float, data_dir: str = "data/processed") -> pd.DataFrame:
+    """Load processed log data with Memory + Parquet Caching"""
+    try:
+        parquet_path = os.path.join(data_dir, "analytics_cache.parquet")
+        
+        # Internal Cache Logic
+        # Even if Streamlit cache misses (e.g. restart), check if we can reuse Parquet
+        use_parquet = False
         if os.path.exists(parquet_path):
-            df = pd.DataFrame()
-            if os.path.isfile(parquet_path) and parquet_path.endswith('.parquet'):
-                df = pd.read_parquet(parquet_path)
-            elif os.path.isdir(parquet_path):
-                parquet_files = glob.glob(os.path.join(parquet_path, "*.parquet"))
-                if parquet_files:
-                    df_list = []
-                    for f in parquet_files:
-                        try:
-                            # Safe read per file
-                            temp_df = pd.read_parquet(f)
-                            if not temp_df.empty:
-                                df_list.append(temp_df)
-                        except Exception as e:
-                            # Log and continue - do not crash dashboard
-                            print(f"Warning: Failed to load parquet file {f}: {e}")
-                            continue
-                            
-                    if df_list:
-                        df = pd.concat(df_list, ignore_index=True)
-            
-            if not df.empty:
-                if 'timestamp' in df.columns:
-                    # 1. Primary Parse: Mixed Format
-                    df['temp_ts'] = pd.to_datetime(df['timestamp'], format='mixed', dayfirst=False, errors='coerce')
-                    
-                    # 2. Secondary Parse: Unix Epoch (for scientific notation strings like '1.13E9')
-                    mask = df['temp_ts'].isna() & df['timestamp'].notna()
-                    if mask.any():
-                        try:
-                            unix_ts = pd.to_numeric(df.loc[mask, 'timestamp'], errors='coerce')
-                            df.loc[mask, 'temp_ts'] = pd.to_datetime(unix_ts, unit='s', errors='coerce')
-                        except Exception: pass
-                    
-                    df['timestamp'] = df['temp_ts']
-                    df.drop(columns=['temp_ts'], inplace=True)
+             # Check if Parquet is fresh enough vs the requested last_modified
+             # If Parquet mtime >= last_modified, it contains the latest data
+             try:
+                 parquet_mtime = os.path.getmtime(parquet_path)
+                 if parquet_mtime >= last_modified:
+                     use_parquet = True
+             except: pass
+        
+        if use_parquet:
+            try:
+                 df = pd.read_parquet(parquet_path)
+                 if 'timestamp' in df.columns:
+                      return df.sort_values('timestamp', ascending=False)
+                 return df
+            except Exception:
+                 pass # Fallback to re-process
 
-                # Normalize Log Levels
-                if 'level' in df.columns: df.rename(columns={'level': 'log_level'}, inplace=True)
-                if 'log_level' not in df.columns: df['log_level'] = "UNKNOWN"
-                df['log_level'] = df['log_level'].fillna("UNKNOWN").astype(str).str.upper()
-                df['log_level'] = df['log_level'].replace({'WARNING': 'WARN', 'COMBO': 'INFO'})
-
-                if 'content' in df.columns: df.rename(columns={'content': 'message'}, inplace=True)
-                if 'eventtemplate' in df.columns: df.rename(columns={'eventtemplate': 'error_type'}, inplace=True)
-                
-                if 'timestamp' in df.columns:
-                    # df = df.dropna(subset=['timestamp']) # Allow NaT for Total Count
-                    return df.sort_values('timestamp', ascending=False)
-                return df
+        # ... (Fallthrough to CSV loading) ...
         
         # Fallback to CSV
         csv_dir = "data/raw_logs"
@@ -147,6 +128,19 @@ def load_raw_data_v2(data_dir: str = "data/processed") -> pd.DataFrame:
                 
         if not df_list: return pd.DataFrame()
         final_df = pd.concat(df_list, ignore_index=True)
+        
+        # Cache to Parquet for future speedups
+        try:
+             save_path = os.path.join("data", "processed")
+             if not os.path.exists(save_path):
+                 os.makedirs(save_path)
+             
+             # Save as a single optimized file
+             parquet_file = os.path.join(save_path, "analytics_cache.parquet")
+             final_df.to_parquet(parquet_file)
+        except Exception as e:
+             print(f"Failed to cache parquet: {e}")
+
         return final_df.sort_values('timestamp', ascending=False) if 'timestamp' in final_df.columns else final_df
     except Exception as e:
         return pd.DataFrame()

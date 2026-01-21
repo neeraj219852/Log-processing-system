@@ -1,6 +1,7 @@
 import streamlit as st
 import auth
 import otp_utils
+from datetime import datetime, timedelta
 
 # --- CALLBACKS FOR INSTANT TRANSITIONS ---
 def handle_send_otp():
@@ -62,34 +63,12 @@ def handle_back_to_login():
 import extra_streamlit_components as stx
 
 def get_manager():
-    return stx.CookieManager()
+    return stx.CookieManager(key="auth_cookie_manager")
 
-def login_page():
-    cookie_manager = get_manager()
-    
-    # Auto-login check
-    # Check if a cookie exists and user is not already deemed logged in
-    # Note: st.session_state.logged_in might be false on refresh, but cookie is true.
-    
-    # We need to fetch cookies. .get_all() or .get(). 
-    # NOTE: cookie_manager.get() is asynchronous-like in Streamlit logic (requires rerun usually).
-    # But stx provides immediate access if it was loaded.
-    
-    cookies = cookie_manager.get_all()
-    if cookies and 'auth_username' in cookies and not st.session_state.get('logged_in'):
-        stored_user = cookies['auth_username']
-        # Validate existence (optional but good)
-        exists = auth.check_email_exists(stored_user) # Or user retrieval fn
-        # For our simple auth, we just assume validity if we set it, or re-verify.
-        # Let's trust the cookie for now (basic) or ensure user exists logic
-        # Ideally, we should check against DB, but check_email_exists checks email, not username.
-        # Let's assume stored_user is what we passed to set().
-        
-        st.session_state.logged_in = True
-        st.session_state.username = stored_user
-        # We need email too
-        st.session_state.user_email = auth.get_user_email(stored_user)
-        st.rerun()
+def login_page(cookie_manager=None):
+    # Cookie logic now handled in app.py
+    if cookie_manager is None:
+        cookie_manager = stx.CookieManager(key="auth_cookie_manager")
 
     # Initialize Auth Mode
     if "auth_mode" not in st.session_state:
@@ -159,6 +138,10 @@ def login_page():
                     
                     if remember_me:
                         cookie_manager.set('auth_username', real_username, expires_at=datetime.now() + timedelta(days=30))
+                    
+                    # Force scroll to top
+                    import streamlit.components.v1 as components
+                    components.html("<script>window.parent.document.querySelector('section.main').scrollTo(0, 0);</script>", height=0)
                     
                     st.rerun()
                 else:

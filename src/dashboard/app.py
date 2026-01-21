@@ -233,7 +233,7 @@ import extra_streamlit_components as stx
 
 def logout():
     # Clear cookie
-    cookie_manager = stx.CookieManager()
+    cookie_manager = stx.CookieManager(key="auth_cookie_manager")
     cookie_manager.delete("auth_username")
     
     st.session_state.logged_in = False
@@ -546,8 +546,31 @@ def main():
     
     auth.init_db()
 
+    # --- Session Persistence ---
+    # Instantiate CookieManager with consistent key
+    cookie_manager = stx.CookieManager(key="auth_cookie_manager")
+    
+    # Check for existing session in cookies if not logged in
+    # Note: cookie_manager.get_all() needs time/rerun to populate on first load. 
+    # If it returns None initially, we might show login, but next rerun it fixes.
+    # To mitigate flickering, we rely on the component's internal state sync.
+    cookies = cookie_manager.get_all()
+    
+    # Startup Sync: Give cookies a chance to load before showing login
+    if "startup_sync_done" not in st.session_state:
+        st.session_state.startup_sync_done = True
+        st.rerun()
+    
+    if not st.session_state.logged_in and cookies and 'auth_username' in cookies:
+        stored_user = cookies['auth_username']
+        # Restore session
+        st.session_state.logged_in = True
+        st.session_state.username = stored_user
+        st.session_state.user_email = auth.get_user_email(stored_user)
+        st.rerun()
+
     if not st.session_state.logged_in:
-        login_page()
+        login_page(cookie_manager)
         st.stop()
     
     # --- Theme State Initialization ---
@@ -628,15 +651,31 @@ def main():
         col_main, col_filters = st.columns([3.5, 1])
     
         # -- Data Processing --
-        df = load_raw_data_v2()
+        try:
+            from controllers.data_loader import get_latest_mtime
+            
+            # Check for new data lightly
+            latest_mtime = get_latest_mtime()
+            df = load_raw_data_v2(latest_mtime)
+        except Exception as e:
+            st.error(f"Failed to load data: {e}")
+            df = pd.DataFrame()
     
+        # Initialize and Check Alerts
         # Initialize and Check Alerts
         alerts.init_db()
         user_email = st.session_state.get('user_email')
-        new_alerts = alerts.check_alerts(df, target_email=user_email)
-        if new_alerts:
-            for alert in new_alerts:
-                st.toast(f"⚠️ {alert['message']}")
+        
+        # Optimize: Only check alerts if data has changed or not checked yet
+        current_count = len(df)
+        last_count = st.session_state.get('last_alert_check_count', -1)
+        
+        if current_count != last_count:
+            new_alerts = alerts.check_alerts(df, target_email=user_email)
+            if new_alerts:
+                for alert in new_alerts:
+                    st.toast(f"⚠️ {alert['message']}")
+            st.session_state.last_alert_check_count = current_count
         
         with col_filters:
             time_range, selected_levels = render_filters(df)

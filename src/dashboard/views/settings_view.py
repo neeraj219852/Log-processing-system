@@ -442,17 +442,13 @@ def render_settings():
                         st.session_state.primary_color
                     )
                     
-                    # 3. Notify and Redirect
-                    st.toast("Settings saved successfully!", icon="✅")
-                    # Small delay or immediate redirect
-                    st.session_state.page = "dashboard"
-                    st.rerun()
-                    
                     if new_avatar_b64:
                         st.session_state.user_avatar = new_avatar_b64
                     
+                    # 3. Notify and Redirect
+                    st.toast("Settings saved successfully!", icon="✅")
+                    
                     # Reset UI state
                     st.session_state.show_uploader = False
-                    
-                    st.toast("Settings saved successfully!", icon="✅")
+                    st.session_state.page = "dashboard"
                     st.rerun()
