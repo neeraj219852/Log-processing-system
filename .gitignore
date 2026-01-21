@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.env
+venv/
+.env/
+
+# Streamlit
+.streamlit/secrets.toml
+
+# Spark
+spark-warehouse/
+*.crc
+
+# Logs & Data
+logs/
+*.log
+data/raw/
+data/processed/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# VS Code
+.vscode/
