@@ -74,25 +74,28 @@ Modern distributed applications generate massive volumes of logs across various 
 ## 2. System Architecture
 
 ### High-Level Architecture
-The system follows a **Monolithic Data Pipeline Architecture** with a decoupled frontend.
-1.  **Ingestion Layer**: Reads raw log files from the local filesystem.
-2.  **Processing Layer (Spark)**: Cleans, parses, and aggregates data using PySpark.
-3.  **Storage Layer**: Saves processed data as Parquet files (Data Lake) and User data in SQLite.
-4.  **Presentation Layer (Streamlit)**: Reads processed data and presents it via a Web UI.
+The system follows a **Streamlit-Centric Data Pipeline**:
+1.  **Ingestion Layer**: Users upload CSV files directly via the Dashboard (Client-side).
+2.  **Processing Layer**: `data_loader.py` reads, cleans, and standardizes logs in memory/streams.
+3.  **Storage Layer**: 
+    *   **History**: Processed logs are saved as Parquet files for fast reloading.
+    *   **Metadata**: Analysis records and User credentials stored in `users.db` (SQLite).
+4.  **Presentation Layer**: Streamlit renders metrics, charts, and history tables.
 
 ### Component Interaction Flow
-1.  **User Action**: User logs in via Streamlit UI.
-2.  **Authentication**: Credentials checked against `users.db` (SQLite).
-3.  **Data Request**: Dashboard requests data from `data_loader.py`.
-4.  **Data Loading**: 
-    *   If cached/processed data exists (Parquet), it is loaded via Pandas.
-    *   If not, raw logs are ingested.
-5.  **Analytics Service** (Background/On-demand):
-    *   `main.py` triggers `SparkSession`.
-    *   `ingest_logs.py` reads raw CSVs.
-    *   `parse_logs.py` normalizes schemas.
-    *   `analytics.py` computes aggregations (Top N errors, trends).
-    *   `alerts.py` checks thresholds and sends emails via SMTP.
+1.  **User Action**: User logs in and uploads CSV file(s).
+2.  **Data Processing**: 
+    *   `input_view.py` receives file stream.
+    *   `data_loader.py` iterates through files, parses them, and merges into a DataFrame.
+3.  **Persistence**:
+    *   Data saved to `data/history/[timestamp].parquet`.
+    *   Record added to `analysis_history` table in SQLite.
+4.  **Visualization**:
+    *   Dashboard calculates metrics on the fly.
+    *   `alerts.py` checks for anomalies in the uploaded batch.
+5.  **History Reload**:
+    *   User selects past analysis.
+    *   System loads corresponding Parquet file without re-processing raw CSVs.
 
 ### API Request–Response Lifecycle (Internal)
 Since the application runs locally without a REST API server, the lifecycle is function-call based:
@@ -150,10 +153,11 @@ Since the application runs locally without a REST API server, the lifecycle is f
 *   **File**: `src/dashboard/app.py`
 *   **Purpose**: Main user interface.
 *   **Logic**:
-    *   Checks `st.session_state.logged_in`. If False, renders Login View.
-    *   Loads data via `load_raw_data_v2`.
-    *   Renders sidebar (User info) and Main area (KPIs, Charts).
-    *   Handles "Export Report" actions.
+    *   **Login**: Checks `st.session_state.logged_in`. If False, renders Login View.
+    *   **Input**: `render_input_page` handles file upload, validation, and calling `load_data_from_stream`.
+    *   **History**: `history_manager.py` manages `users.db` records and Parquet retrieval.
+    *   **Visualization**: Renders sidebar (User info) and Main area (KPIs, Charts) using loaded dataframe.
+    *   **Alerts**: Runs on-the-fly alert checks in `alerts.py`.
 
 ### 4.3. Spark Analytics Module
 *   **Files**: `src/spark/analytics.py`, `parse_logs.py`

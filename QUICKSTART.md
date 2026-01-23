@@ -13,34 +13,23 @@ pip install -r requirements.txt
 java -version
 ```
 
-### Step 2: Verify Sample Data
+### Step 2: Launch Dashboard
 
-Sample log data is already included in `data/raw_logs/sample_logs.csv`. You can add your own CSV files to this directory.
-
-### Step 3: Run Processing
-
-Process the logs using PySpark:
-
-```bash
-python src/main.py
-```
-
-This will:
-- Load logs from `data/raw_logs/`
-- Parse and normalize the data
-- Run analytics
-- Check for alerts
-- Generate reports in `reports/csv/` and `reports/json/`
-
-### Step 4: Launch Dashboard
-
-In a new terminal:
+Start the application:
 
 ```bash
 streamlit run src/dashboard/app.py
 ```
 
-The dashboard will open at `http://localhost:8501`
+Open `http://localhost:8501` in your browser.
+
+### Step 3: Upload & Analyze
+
+1. **Login** (Default: admin/admin or create new user).
+2. **Upload**: Drag & drop your log CSV file(s) onto the Input page.
+   - You can use the sample file at `data/raw_logs/sample_logs.csv` to test.
+3. **Analyze**: Click the button to process logs and view the dashboard.
+4. **History**: Use the sidebar "Analysis History" to view past sessions.
 
 ## 📊 What You'll See
 

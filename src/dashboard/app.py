@@ -140,6 +140,28 @@ def load_css(file_name):
             background-color: #0F191E !important;
         }
 
+        /* Dialog/Modal Styling for Dark Mode */
+        div[role="dialog"],
+        div[data-testid="stDialog"] > div {
+            background-color: #162226 !important;
+            color: #ECFEFF !important;
+        }
+        
+        div[role="dialog"] h2,
+        div[role="dialog"] h3,
+        div[role="dialog"] p,
+        div[role="dialog"] div,
+        div[role="dialog"] span,
+        div[role="dialog"] button[aria-label="Close"] {
+            color: #ECFEFF !important;
+        }
+        
+        /* Fix Close Button Icon specifically if needed */
+        button[aria-label="Close"] svg {
+            fill: #ECFEFF !important;
+            color: #ECFEFF !important;
+        }
+
         /* HEADER STYLING FOR DARK MODE */
         header[data-testid="stHeader"] {
             background-color: var(--bg-color) !important;
@@ -200,31 +222,37 @@ def load_css(file_name):
         section[data-testid="stSidebar"] ::-webkit-scrollbar-track {
             background: var(--bg-secondary);
         }
+        
+        /* File Uploader Uploaded File Name Fix */
+        [data-testid="stFileUploader"] div div div small,
+        [data-testid="stFileUploaderFileName"] {
+            color: #ECFEFF !important;
+        }
         """
 
     st.markdown(f'<style>{dark_css}{color_css}</style>', unsafe_allow_html=True)
 
-# Load External CSS
-css_path = Path("src/dashboard/assets/css/style.css")
-if css_path.exists():
-    load_css(str(css_path))
-else:
-    st.warning("CSS file not found. Styles may be missing.")
+# Helper Functions (Loaders)
+
 
 # --- IMPORTS ---
 try:
     from views.auth_view import login_page
     from views.settings_view import render_settings
+    from views.input_view import render_input_page
     from controllers.data_loader import load_raw_data_v2, filter_data
-    from components.ui_components import view_error_details, view_alert_history, render_kpi, render_progress_bar
+    from components.ui_components import view_error_details, view_alert_history, render_kpi, render_progress_bar, view_analysis_history
+    import history_manager
 except ImportError:
     # Fallback for direct execution
     import sys
     sys.path.append(str(Path(__file__).parent))
     from views.auth_view import login_page
     from views.settings_view import render_settings
+    from views.input_view import render_input_page
     from controllers.data_loader import load_raw_data_v2, filter_data
-    from components.ui_components import view_error_details, view_alert_history, render_kpi, render_progress_bar
+    from components.ui_components import view_error_details, view_alert_history, render_kpi, render_progress_bar, view_analysis_history
+    import history_manager
 
 # --- Authentication UI ---
 # (Logic moved to views/auth_view.py)
@@ -238,6 +266,9 @@ def logout():
     
     st.session_state.logged_in = False
     st.session_state.username = None
+    # Prevent immediate auto-login on next run
+    st.session_state['just_logged_out'] = True
+    
     # Clear preferences on logout to avoid stale state for next user
     if "theme_mode" in st.session_state: del st.session_state.theme_mode
     if "primary_color" in st.session_state: del st.session_state.primary_color
@@ -531,6 +562,11 @@ def render_filters(df: pd.DataFrame):
             except Exception as e:
                 st.error(f"Error accessing alert history: {e}")
 
+        st.markdown('<div style="height: 8px"></div>', unsafe_allow_html=True)
+
+        if st.button("Analysis History 📜", use_container_width=True):
+             view_analysis_history(st.session_state.get('username'))
+
         st.markdown('</div>', unsafe_allow_html=True)
 
         return date_range, selected_levels
@@ -562,12 +598,24 @@ def main():
         st.rerun()
     
     if not st.session_state.logged_in and cookies and 'auth_username' in cookies:
-        stored_user = cookies['auth_username']
-        # Restore session
-        st.session_state.logged_in = True
-        st.session_state.username = stored_user
-        st.session_state.user_email = auth.get_user_email(stored_user)
-        st.rerun()
+        # Check if we explicitly logged out just now
+        if not st.session_state.get('just_logged_out'):
+            stored_user = cookies['auth_username']
+            # Restore session
+            st.session_state.logged_in = True
+            st.session_state.username = stored_user
+            st.session_state.user_email = auth.get_user_email(stored_user)
+            st.rerun()
+            
+    # Reset the logout flag if we reached here (meaning we are showing login page or already logged in)
+    if st.session_state.get('just_logged_out') and not st.session_state.logged_in:
+        # We are about to show login page, so it's safe to clear this for future restarts
+        # keeping it until successful login might be safer, but clearing it here ensures 
+        # that if they refresh the page manually later, auto-login can work again if cookie remains.
+        # But for now, let's just leave it or clear it. 
+        # If we clear it, a manual refresh might auto-login them again if cookie wasn't deleted.
+        # But logout() called delete(). So hopefully it's gone by next refresh with user interaction.
+        st.session_state['just_logged_out'] = False
 
     if not st.session_state.logged_in:
         login_page(cookie_manager)
@@ -580,6 +628,32 @@ def main():
             prefs = auth.get_preferences(st.session_state.username)
             st.session_state.theme_mode = prefs.get("theme_mode", "Light")
             st.session_state.primary_color = prefs.get("primary_color", "#0D9488")
+            
+        # Load External CSS (Now that theme_mode is guaranteed)
+        css_path = Path("src/dashboard/assets/css/style.css")
+        if css_path.exists():
+            load_css(str(css_path))
+            
+    # --- History Loading Logic ---
+    if st.session_state.get('trigger_history_load'):
+        try:
+            hist_id = st.session_state.get('load_history_id')
+            data_path = history_manager.get_analysis_data_path(hist_id)
+            if data_path and os.path.exists(data_path):
+                # Load parquet
+                df = pd.read_parquet(data_path)
+                st.session_state['log_data'] = df
+                st.session_state['data_ready'] = True
+                st.session_state['viewing_history'] = True
+                st.session_state['history_record_id'] = hist_id
+                st.toast("Historical Analysis Loaded", icon="📜")
+            else:
+                st.error("Failed to load historical data. details not found.")
+        except Exception as e:
+            st.error(f"Error loading history: {e}")
+        
+        # Reset trigger
+        st.session_state.trigger_history_load = False
     
     # Sidebar: User Profile & Actions
     with st.sidebar:
@@ -588,7 +662,7 @@ def main():
             <div style="width: 64px; height: 64px; background: #0D9488; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; margin: 0 auto 12px auto;">
                 {st.session_state.get('username', 'U')[0].upper()}
             </div>
-            <h3 style="margin: 0; color: #F8FAFC;">{st.session_state.get('username', 'User')}</h3>
+            <h3 style="margin: 0; color: var(--text-title);">{st.session_state.get('username', 'User')}</h3>
             <p style="margin: 0; color: #94A3B8; font-size: 0.8rem;">Administrator</p>
         </div>
         <hr style="border-color: #334155;">
@@ -606,12 +680,27 @@ def main():
                 auth.update_preferences(st.session_state.username, new_theme, st.session_state.get("primary_color", "#0D9488"))
             st.rerun()
             
+        if st.button("Analysis History 📜", use_container_width=True):
+            view_analysis_history(st.session_state.get('username'))
+            
         st.markdown('<div style="height: 12px"></div>', unsafe_allow_html=True)
+        
+        if st.button("New Analysis 🔄", use_container_width=True):
+            st.session_state.data_ready = False
+            st.session_state['log_data'] = None
+            st.session_state['viewing_history'] = False
+            st.rerun()
+            
         st.button("Logout", on_click=logout, type="secondary", use_container_width=True)
 
     # --- Navigation Logic ---
+    if "data_ready" not in st.session_state:
+        st.session_state.data_ready = False
+
     if st.session_state.page == "settings":
         render_settings()
+    elif not st.session_state.data_ready:
+        render_input_page()
     else:
         # --- Dashboard View ---
         
@@ -651,15 +740,17 @@ def main():
         col_main, col_filters = st.columns([3.5, 1])
     
         # -- Data Processing --
-        try:
-            from controllers.data_loader import get_latest_mtime
-            
-            # Check for new data lightly
-            latest_mtime = get_latest_mtime()
-            df = load_raw_data_v2(latest_mtime)
-        except Exception as e:
-            st.error(f"Failed to load data: {e}")
-            df = pd.DataFrame()
+        # -- Data Processing --
+        # Using data from session state (loaded via Input Page)
+        df = st.session_state.get('log_data', pd.DataFrame())
+        
+        if df.empty:
+            # Fallback if something went wrong
+            st.error("No data available. Please upload a file.")
+            st.session_state.data_ready = False
+            if st.button("Return to Upload"):
+                st.rerun()
+            st.stop()
     
         # Initialize and Check Alerts
         # Initialize and Check Alerts
@@ -671,10 +762,12 @@ def main():
         last_count = st.session_state.get('last_alert_check_count', -1)
         
         if current_count != last_count:
-            new_alerts = alerts.check_alerts(df, target_email=user_email)
-            if new_alerts:
-                for alert in new_alerts:
-                    st.toast(f"⚠️ {alert['message']}")
+            # Skip new alert generation if examining historical data
+            if not st.session_state.get('viewing_history'):
+                new_alerts = alerts.check_alerts(df, target_email=user_email)
+                if new_alerts:
+                    for alert in new_alerts:
+                        st.toast(f"⚠️ {alert['message']}")
             st.session_state.last_alert_check_count = current_count
         
         with col_filters:
@@ -869,7 +962,11 @@ def main():
                             height=320,
                             hovermode="x unified",
                             template=get_plotly_template(),
-                            font=dict(color=chart_text_color)
+                            font=dict(color=chart_text_color),
+                            hoverlabel=dict(
+                                bgcolor="#162226" if is_dark else "#FFFFFF",
+                                font=dict(color="#ECFEFF" if is_dark else "#334155")
+                            )
                         )
                         st.plotly_chart(fig, config={'displayModeBar': False}, width="stretch", theme=None)
                     else:
@@ -916,7 +1013,11 @@ def main():
                         ),
                         height=280,
                         template=get_plotly_template(),
-                        font=dict(color=chart_text_color)
+                        font=dict(color=chart_text_color),
+                        hoverlabel=dict(
+                            bgcolor="#162226" if is_dark else "#FFFFFF",
+                            font=dict(color="#ECFEFF" if is_dark else "#334155")
+                        )
                     )
                     st.plotly_chart(fig_donut, config={'displayModeBar': False}, width="stretch", theme=None)
                 else:

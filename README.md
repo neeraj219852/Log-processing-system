@@ -5,11 +5,13 @@ A Python-based distributed log processing system built with PySpark and Streamli
 ## 🎯 Features
 
 - **Distributed Processing**: Uses PySpark for scalable log processing
+- **User-Centric Workflow**: **Drag & Drop CSV Upload** directly in the dashboard
+- **Multiple File Support**: Analyze logs from multiple sources simultaneously
+- **Analysis History**: Persisted history of past analyses with instant reload capability
 - **Comprehensive Analytics**: Error analysis, trends, IP/service breakdowns
 - **Alert System**: Configurable alerts based on thresholds
 - **Interactive Dashboard**: Modern Streamlit-based visualization
 - **Automated Reporting**: CSV and JSON report generation
-- **Production Ready**: Clean, modular, scalable architecture
 
 ## 📂 Project Structure
 
@@ -17,30 +19,26 @@ A Python-based distributed log processing system built with PySpark and Streamli
 distributed-log-system/
 │
 ├── data/
-│   └── raw_logs/                 # Input CSV log files
+│   ├── history/                  # Persisted analysis files (Parquet)
+│   ├── users.db                  # User credentials & History DB
+│   └── raw_logs/                 # (Legacy/Backend) Input logs
 │
 ├── reports/
 │   ├── csv/                      # CSV reports
 │   ├── json/                     # JSON reports
-│   └── alerts.log                # Alert history
 │
 ├── src/
 │   ├── spark/
-│   │   ├── spark_session.py      # Spark session management
-│   │   ├── ingest_logs.py        # Log ingestion
-│   │   ├── parse_logs.py         # Log parsing & normalization
-│   │   ├── analytics.py          # Core analytics
-│   │   ├── alerts.py             # Alert system
-│   │   └── export_reports.py     # Report generation
+│   │   ├── ...                   # Backend Analytics Modules
 │   │
 │   ├── dashboard/
-│   │   └── app.py                # Streamlit dashboard
+│   │   ├── app.py                # Streamlit dashboard
+│   │   ├── history_manager.py    # Analysis history logic
+│   │   └── controllers/data_loader.py
 │   │
-│   └── main.py                   # Main processing pipeline
+│   └── main.py                   # (Optional) Backend pipeline
 │
 ├── config/
-│   └── config.yaml               # Configuration file
-│
 ├── requirements.txt
 └── README.md
 ```
@@ -106,42 +104,32 @@ Edit `config/config.yaml` to customize:
 
 ## 🏃 Running the System
 
-### 1. Process Logs with PySpark
+### 1. Launch Dashboard
 
-Run the main processing pipeline:
-
-```bash
-python src/main.py
-```
-
-Or run individual modules:
-
-```bash
-# Ingest logs
-python src/spark/ingest_logs.py
-
-# Parse logs
-python src/spark/parse_logs.py
-
-# Run analytics
-python src/spark/analytics.py
-
-# Check alerts
-python src/spark/alerts.py
-
-# Export reports
-python src/spark/export_reports.py
-```
-
-### 2. Launch Dashboard
-
-Start the Streamlit dashboard:
+Start the interactive dashboard:
 
 ```bash
 streamlit run src/dashboard/app.py
 ```
 
-The dashboard will open in your browser at `http://localhost:8501`
+The dashboard will open in your browser at `http://localhost:8501`.
+
+### 2. Upload Data
+- Drag and drop one or **multiple CSV files** into the upload area.
+- Click **"Analyse"** to process the logs.
+- The system supports Linux Syslogs, Spark Logs, and custom CSV formats.
+
+### 3. View Analytics & History
+- Explore visual metrics and error breakdowns.
+- Use the **Analysis History** button in the sidebar to view and reload past sessions.
+- Alert definitions are checked automatically during analysis.
+
+### (Optional) 4. Backend Processing
+You can still run the legacy backend pipeline for batch processing of `data/raw_logs/`:
+
+```bash
+python src/main.py
+```
 
 ## 📈 Dashboard Features
 

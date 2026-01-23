@@ -8,9 +8,11 @@ from pathlib import Path
 # This assumes this file is in src/dashboard/components/
 try:
     import alerts
+    import history_manager
 except ImportError:
     sys.path.append(str(Path(__file__).parent.parent))
     import alerts
+    import history_manager
 
 # --- UI Renderers ---
 
@@ -133,3 +135,61 @@ def view_alert_history(start_date=None, end_date=None, target_errors=None):
         )
     else:
         st.info("No alerts found matching the criteria.")
+
+@st.dialog("Analysis History", width="large")
+def view_analysis_history(username):
+    st.markdown("### Past Analyses")
+    
+    # helper for styling
+    st.markdown("""
+        <style>
+            .hist-row {
+                padding: 10px 0;
+                border-bottom: 1px solid #334155;
+                font-size: 0.9rem;
+            }
+            .hist-header {
+                font-weight: 700;
+                color: var(--text-muted);
+                border-bottom: 2px solid #334155;
+                padding-bottom: 8px;
+                margin-bottom: 8px;
+            }
+        </style>
+    """, unsafe_allow_html=True)
+    
+    df = history_manager.get_history(username=username)
+    
+    if df.empty:
+        st.info("No analysis history found.")
+        return
+
+    # Header
+    c1, c2, c3, c4, c5, c6 = st.columns([1, 2, 2, 4, 1.5, 1.5])
+    c1.markdown("**ID**")
+    c2.markdown("**Date**")
+    c3.markdown("**Time**")
+    c4.markdown("**File**")
+    c5.markdown("**Stats**") # Errors/Warns
+    c6.markdown("**Action**")
+    st.markdown("<hr style='margin: 4px 0 12px 0; border-color: #334155;'>", unsafe_allow_html=True)
+
+    # Iteration (Limit to recent 50)
+    for index, row in df.iterrows():
+        c1, c2, c3, c4, c5, c6 = st.columns([1, 2, 2, 4, 1.5, 1.5])
+        
+        c1.write(f"#{row['id']}")
+        c2.write(row['analysis_date'])
+        c3.write(row['analysis_time'])
+        c4.write(row['file_name'])
+        c5.markdown(f"<span style='color:#EF4444'>{row['num_errors']}</span> / <span style='color:#EAB308'>{row['num_warnings']}</span>", unsafe_allow_html=True)
+        
+        if c6.button("View", key=f"hist_btn_{row['id']}", type="secondary", use_container_width=True):
+            # Trigger load in app.py
+            # Since we can't fully control app logic here, we set session state flags
+            st.session_state['trigger_history_load'] = True
+            st.session_state['load_history_id'] = row['id']
+            st.rerun()
+            
+    if len(df) > 50:
+        st.caption("Showing most recent 50 records.")
