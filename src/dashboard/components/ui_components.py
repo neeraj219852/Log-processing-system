@@ -107,11 +107,11 @@ def view_error_details(message: str, count: int, examples: pd.DataFrame):
         st.info("No detailed occurrences data available.")
 
 @st.dialog("Alert History")
-def view_alert_history(start_date=None, end_date=None, target_errors=None):
+def view_alert_history(start_date=None, end_date=None, target_errors=None, username=None):
     st.markdown("### Recent Alerts")
     
     # Load alerts
-    history_df = alerts.get_alerts(start_date=start_date, end_date=end_date)
+    history_df = alerts.get_alerts(start_date=start_date, end_date=end_date, username=username)
     
     # Filter by Top Errors if requested
     if target_errors and not history_df.empty and ('details' in history_df.columns or 'message' in history_df.columns):
@@ -133,7 +133,8 @@ def view_alert_history(start_date=None, end_date=None, target_errors=None):
                 "alert_type": "Type",
                 "message": "Message",
                 "severity": "Severity",
-                "details": "Details"
+                "details": "Details",
+                "email_sent": st.column_config.CheckboxColumn("Email Sent", disabled=True)
             }
         )
         

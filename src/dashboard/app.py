@@ -574,8 +574,8 @@ def render_filters(df: pd.DataFrame):
                     if 'timestamp' in temp_df.columns:
                         temp_df = temp_df[(temp_df['timestamp'] >= s_ts) & (temp_df['timestamp'] <= e_ts)]
                 
-                # Force a focused alert check on this specific view
-                alerts.check_alerts(temp_df, force=True)
+                # Force a focused alert check on this specific view (NO EMAIL)
+                alerts.check_alerts(temp_df, force=True, username=st.session_state.username, send_email=False)
 
                 # Extract top errors
                 if not temp_df.empty and 'message' in temp_df.columns and 'log_level' in temp_df.columns:
@@ -584,11 +584,12 @@ def render_filters(df: pd.DataFrame):
                          # Get top 5 messages
                          top_errors = err_df_temp['message'].value_counts().head(5).index.tolist()
 
-                # If we are looking for specific errors, we ignore the date range for the ALERT SEARCH
+                # Search alerts for this user
+                username = st.session_state.username
                 if top_errors:
-                    view_alert_history(None, None, top_errors)
+                    view_alert_history(None, None, top_errors, username=username)
                 else:
-                    view_alert_history(start, end, top_errors)
+                    view_alert_history(start, end, top_errors, username=username)
             except Exception as e:
                 st.error(f"Error accessing alert history: {e}")
 
@@ -725,6 +726,7 @@ def main():
             st.session_state.data_ready = False
             st.session_state['log_data'] = None
             st.session_state['viewing_history'] = False
+            st.session_state.page = "dashboard"
             st.rerun()
             
         st.button("Logout", on_click=logout, type="secondary", use_container_width=True)
@@ -737,7 +739,8 @@ def main():
         render_settings()
     elif st.session_state.page == "search":
         # Pass raw df to search view (it handles its own isolation)
-        search_view.render_search_view(st.session_state.get('log_data', pd.DataFrame()))
+        data_to_pass = st.session_state.get('log_data')
+        search_view.render_search_view(data_to_pass if data_to_pass is not None else pd.DataFrame())
     elif not st.session_state.data_ready:
         render_input_page()
     else:
@@ -804,7 +807,7 @@ def main():
         if current_count != last_count:
             # Skip new alert generation if examining historical data
             if not st.session_state.get('viewing_history'):
-                new_alerts = alerts.check_alerts(df, target_email=user_email)
+                new_alerts = alerts.check_alerts(df, target_email=user_email, username=st.session_state.username)
                 if new_alerts:
                     for alert in new_alerts:
                         st.toast(f"⚠️ {alert['message']}")

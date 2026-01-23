@@ -52,11 +52,12 @@ def get_history(username=None):
     """Retrieve analysis history, optionally filtered by username."""
     conn = sqlite3.connect(DB_PATH)
     # Return as dataframe for easy display
-    query = "SELECT * FROM analysis_history"
-    params = []
-    if username:
-        query += " WHERE username = ?"
-        params.append(username)
+    # Safe Guard: Strict User Isolation
+    if not username:
+         return pd.DataFrame()
+
+    query = "SELECT * FROM analysis_history WHERE username = ?"
+    params = [username]
     
     query += " ORDER BY id DESC"
     

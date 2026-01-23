@@ -9,8 +9,6 @@ import os
 
 # Fix: Unset SPARK_HOME if set to avoid conflicts with external Spark installations
 # This MUST happen before pyspark is imported
-# Fix: Unset SPARK_HOME if set to avoid conflicts with external Spark installations
-# This MUST happen before pyspark is imported
 if "SPARK_HOME" in os.environ:
     del os.environ["SPARK_HOME"]
 
@@ -59,20 +57,23 @@ def create_spark_session(config: dict = None) -> SparkSession:
 
     spark_cfg = config.get("spark", {})
 
+    # Action: Initialize Spark Builder to construct the session
     builder = (
         SparkSession.builder
         .appName(spark_cfg.get("app_name", "DistributedLogProcessor"))
-        .appName(spark_cfg.get("app_name", "DistributedLogProcessor"))
-        .master("local[1]") # Force single thread for stability
-        # Fix for Windows: Force driver to bind to loopback to avoid VPN/Network issues causing ConnectionReset
+        # Action: Set master to local mode with 1 core for stability
+        .master("local[1]") 
+        # Action: Bind driver to localhost to avoid VPN/Network connection issues
         .config("spark.driver.bindAddress", "127.0.0.1")
         .config("spark.driver.host", "localhost")
+        # Action: Configure warehouse dir for Spark SQL metadata
         .config("spark.sql.warehouse.dir", "file:///C:/temp/spark-warehouse")
         .config("spark.local.dir", "C:/temp/spark-temp")
         .config("spark.driver.extraJavaOptions", "-Djava.io.tmpdir=C:/temp/spark-temp")
     )
 
     # Memory configuration
+    # Action: function sets the maximum memory for executors
     builder = builder.config(
         "spark.executor.memory",
         spark_cfg.get("executor_memory", "2g")
@@ -93,13 +94,16 @@ def create_spark_session(config: dict = None) -> SparkSession:
     )
 
     # Performance & stability (safe for Spark 3.5)
+    # Action: Enable Adaptive Query Execution for dynamic optimization
     builder = builder.config("spark.sql.adaptive.enabled", "true")
     builder = builder.config(
         "spark.sql.adaptive.coalescePartitions.enabled", "true"
     )
 
+    # Action: Instantiates the SparkSession object with defined configs
     spark = builder.getOrCreate()
 
+    # Action: Set log level to reduce console verbosity
     spark.sparkContext.setLogLevel(
         spark_cfg.get("log_level", "WARN")
     )
