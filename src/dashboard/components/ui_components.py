@@ -23,16 +23,27 @@ def render_kpi(title, value, unit, color, icon, trend, trend_val):
         trend_bg = f"{color}15" # 10-15% opacity
         trend_html = f"""<div class="kpi-trend" style="color: {color}; background-color: {trend_bg};">{trend} {trend_val}</div>"""
         
+    # Create valid rgba for background (assuming hex input)
+    # Simple approach: use hex with alpha if length is 7
+    bg_color = f"{color}10" if len(color) == 7 else color
+    border_color = f"{color}40" if len(color) == 7 else color
+    
     st.markdown(f"""
-<div class="kpi-card">
+<div class="kpi-card" style="
+    border-top: 4px solid {color}; 
+    background: linear-gradient(180deg, {bg_color} 0%, transparent 60%);
+    border-left: 1px solid {border_color};
+    border-right: 1px solid {border_color};
+    border-bottom: 1px solid {border_color};
+">
 <div class="kpi-header">
-<div class="kpi-icon-wrapper" style="background-color: {color}15; color: {color};">
+<div class="kpi-icon-wrapper" style="background-color: {color}20; color: {color};">
 {icon}
 </div>
 {trend_html}
 </div>
 <div class="kpi-value">{value}<span style="font-size: 1.1rem; color: var(--text-muted); font-weight: 500; margin-left: 4px;">{unit}</span></div>
-<div class="kpi-title">{title}</div>
+<div class="kpi-title" style="color: {color}; opacity: 0.9;">{title}</div>
 </div>
 """, unsafe_allow_html=True)
 
@@ -158,16 +169,23 @@ def view_analysis_history(username):
     st.markdown("""
         <style>
             .hist-row {
-                padding: 10px 0;
-                border-bottom: 1px solid #334155;
-                font-size: 0.9rem;
+                padding: 12px 6px; /* More breathing room */
+                border-bottom: 1px solid var(--border-color, #334155);
+                font-size: 0.95rem;
+                transition: background-color 0.2s;
+            }
+            .hist-row:hover {
+                background-color: rgba(255, 255, 255, 0.03); /* Subtle hover effect */
             }
             .hist-header {
                 font-weight: 700;
-                color: var(--text-muted);
-                border-bottom: 2px solid #334155;
-                padding-bottom: 8px;
-                margin-bottom: 8px;
+                color: var(--text-title, #ECFEFF); /* Brighter title */
+                border-bottom: 2px solid var(--primary-color, #0D9488); /* Accent highlight */
+                padding-bottom: 12px;
+                margin-bottom: 12px;
+                text-transform: uppercase;
+                letter-spacing: 0.05em;
+                font-size: 0.8rem;
             }
         </style>
     """, unsafe_allow_html=True)
@@ -184,7 +202,7 @@ def view_analysis_history(username):
     c2.markdown("**Date**")
     c3.markdown("**Time**")
     c4.markdown("**File**")
-    c5.markdown("**Stats**") # Errors/Warns
+    c5.markdown("**Stats (Error / Warn)**") # Errors/Warns
     c6.markdown("**Action**")
     st.markdown("<hr style='margin: 4px 0 12px 0; border-color: #334155;'>", unsafe_allow_html=True)
 

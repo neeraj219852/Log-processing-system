@@ -145,6 +145,9 @@ def load_css(file_name):
         div[data-testid="stDialog"] > div {
             background-color: #162226 !important;
             color: #ECFEFF !important;
+            border: 1px solid rgba(103, 232, 249, 0.2) !important; /* Subtle Cyan Tint */
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5), 0 0 15px rgba(13, 148, 136, 0.15) !important; /* Depth + Glow */
+            border-radius: 12px !important;
         }
         
         div[role="dialog"] h2,
@@ -230,8 +233,9 @@ def load_css(file_name):
         }
         /* Sidebar Styling for Dark Mode */
         section[data-testid="stSidebar"] {
-            background-color: var(--bg-secondary) !important;
-            border-right: 1px solid var(--border-color);
+            background: #5F9598 !important; /* Muted Teal for Dark Mode */
+            border-right: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 2px 0 10px rgba(0,0,0,0.2);
         }
         
         /* Force all text in sidebar to be visible */

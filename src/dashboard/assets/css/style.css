@@ -59,6 +59,48 @@
     max-width: 95% !important;
 }
 
+/* --- Sidebar --- */
+section[data-testid="stSidebar"] {
+    background-color: #5F9598;
+    /* Custom Muted Teal */
+    border-right: 1px solid rgba(255, 255, 255, 0.1);
+    transition: background-color 0.3s ease;
+}
+
+/* Force Sidebar Text Light */
+section[data-testid="stSidebar"] h1,
+section[data-testid="stSidebar"] h2,
+section[data-testid="stSidebar"] h3,
+section[data-testid="stSidebar"] label,
+section[data-testid="stSidebar"] span,
+section[data-testid="stSidebar"] div,
+section[data-testid="stSidebar"] p {
+    color: #F8FAFC !important;
+    /* Slate 50 */
+}
+
+section[data-testid="stSidebar"] small {
+    color: #94A3B8 !important;
+    /* Slate 400 */
+}
+
+/* Sidebar Buttons */
+section[data-testid="stSidebar"] button {
+    background-color: #16476A !important;
+    /* Deep Blue-Teal */
+    color: white !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    transition: all 0.2s ease;
+}
+
+section[data-testid="stSidebar"] button:hover {
+    background-color: #11364F !important;
+    /* Slightly darker on hover */
+    border-color: rgba(255, 255, 255, 0.3) !important;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
 /* --- Header --- */
 .header-container {
     display: flex;
@@ -336,6 +378,22 @@ button[kind="primary"] {
 button[kind="primary"]:hover {
     box-shadow: 0 4px 12px rgba(13, 148, 136, 0.2);
     opacity: 0.9;
+}
+
+/* Secondary Buttons & Downloads */
+button[kind="secondary"],
+a[data-testid="stDownloadButton"] {
+    background-color: #16476A !important;
+    color: white !important;
+    border: none !important;
+    transition: all 0.2s;
+    border-radius: 8px !important;
+}
+
+button[kind="secondary"]:hover,
+a[data-testid="stDownloadButton"]:hover {
+    background-color: #123854 !important;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
 }
 
 /* Input Fields */

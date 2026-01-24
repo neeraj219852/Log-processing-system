@@ -20,6 +20,19 @@ def render_input_page():
     
     st.markdown('<div style="height: 15vh;"></div>', unsafe_allow_html=True)
     
+    # Specific Background for Input Page
+    # Specific Background for Input Page
+    theme = st.session_state.get("theme_mode", "Light")
+    bg_color = "#F3F4F4" if theme == "Light" else "#061E29"
+    
+    st.markdown(f"""
+        <style>
+            .stApp {{
+                background-color: {bg_color} !important;
+            }}
+        </style>
+    """, unsafe_allow_html=True)
+    
     st.markdown('<div class="input-title">LOG PROCESSING SYSTEM</div>', unsafe_allow_html=True)
     st.markdown('<div class="input-subtitle">Securely analyze and process your system logs</div>', unsafe_allow_html=True)
     
